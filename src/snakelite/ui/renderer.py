@@ -1,6 +1,8 @@
 import pygame
 import math
 from snakelite.settings import *
+from snakelite.entities.food.bomb_food import BombFood
+from snakelite.entities.food.slowdown_food import SlowdownFood
 
 class GameRenderer:
     def __init__(self, game):
@@ -52,17 +54,12 @@ class GameRenderer:
             food_color = (r, g, 0)
             pygame.draw.rect(self.window, food_color, (*food.position, BLOCK_SIZE, BLOCK_SIZE))
             
-            for bomb in food.active_bombs:
-                # Unpack all 4 values from bomb tuple (x, y, creation_time, radius)
-                x, y, creation_time, radius = bomb
-                end_time = creation_time + BOMB_DURATION
-                remaining = max(0, end_time - current_time)
-                ratio = remaining / BOMB_DURATION
-                bomb_color = (255, 165 + int(90 * ratio), 0)
-                pygame.draw.rect(self.window, bomb_color, (int(x), int(y), BLOCK_SIZE, BLOCK_SIZE))
-            
-            for slowdown in food.active_slowdowns:
-                pygame.draw.rect(self.window, BLUE, (int(slowdown[0]), int(slowdown[1]), BLOCK_SIZE, BLOCK_SIZE))
+            if isinstance(food, BombFood):
+                for bomb in food.active_bombs:
+                    self._draw_bomb(bomb)
+            elif isinstance(food, SlowdownFood):
+                for slowdown in food.active_slowdowns:
+                    self._draw_slowdown(slowdown)
 
         # Draw powerups and projectiles
         for powerup in self.game.powerups:
@@ -152,4 +149,27 @@ class GameRenderer:
             text_rect.center = (WIDTH // 2, y)
         else:  # Left-align
             text_rect.topleft = (pos_x, y)
-        self.window.blit(text_surface, text_rect) 
+        self.window.blit(text_surface, text_rect)
+
+    def _draw_bomb(self, bomb):
+        """Draw a bomb with a burning effect that changes color over time"""
+        # Unpack all 4 values from bomb tuple (x, y, creation_time, radius)
+        x, y, creation_time, radius = bomb
+        end_time = creation_time + BOMB_DURATION
+        remaining = max(0, end_time - pygame.time.get_ticks())
+        ratio = remaining / BOMB_DURATION
+        # Color transitions from dark orange to light orange
+        bomb_color = (255, 165 + int(90 * ratio), 0)
+        pygame.draw.rect(self.window, bomb_color, (int(x), int(y), BLOCK_SIZE, BLOCK_SIZE))
+
+    def _draw_slowdown(self, slowdown):
+        """Draw a slowdown effect with a blue tint that fades over time"""
+        x, y, duration = slowdown
+        current_time = pygame.time.get_ticks()
+        remaining = max(0, current_time - (current_time - duration))
+        ratio = remaining / duration
+        # Create a semi-transparent blue surface
+        surf = pygame.Surface((BLOCK_SIZE, BLOCK_SIZE))
+        surf.set_alpha(int(255 * ratio))
+        surf.fill(BLUE)
+        self.window.blit(surf, (int(x), int(y))) 

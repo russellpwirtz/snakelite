@@ -3,9 +3,10 @@ import sys
 import pygame
 import random
 from snakelite.settings import *
-from snakelite.entities.food import Food
 from snakelite.systems.combat import CombatSystem
 from snakelite.ui.renderer import GameRenderer
+from snakelite.entities.food.bomb_food import BombFood
+from snakelite.entities.food.slowdown_food import SlowdownFood
 
 # Initialize Pygame
 pygame.init()
@@ -88,7 +89,20 @@ class SnakeGame:
                   [bomb[:2] for bomb in self.bombs] + \
                   [slow[:2] for slow in self.slowdown_elements] + \
                   [pwr[:2] for pwr in self.powerups]
-        return Food.generate(existing)
+        
+        # Randomly choose between bomb and slowdown food
+        food_type = random.choice(['bomb', 'slowdown'])
+        
+        # Generate new position until we find one that's not blocked
+        while True:
+            x = random.randint(0, (WIDTH - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
+            y = random.randint(0, (HEIGHT - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
+            pos = (x, y)
+            if pos not in existing:
+                if food_type == 'bomb':
+                    return BombFood.generate(existing, food_type)
+                else:
+                    return SlowdownFood.generate(existing, food_type)
 
     def move_food(self):
         current_time = pygame.time.get_ticks()
@@ -106,16 +120,26 @@ class SnakeGame:
 
             # Handle bomb/slowdown creation
             if random.random() < 0.3:
-                if bomb := food.create_bomb(current_time):
-                    food.active_bombs.append(bomb)
-                    self.bombs.append(bomb)
-                if slowdown := food.create_slowdown():
-                    food.active_slowdowns.append(slowdown)
-                    self.slowdown_elements.append(slowdown)
+                existing_positions = [f.position for f in self.foods] + \
+                                  self.stone_blocks + \
+                                  [bomb[:2] for bomb in self.bombs] + \
+                                  [slow[:2] for slow in self.slowdown_elements] + \
+                                  [pwr[:2] for pwr in self.powerups]
+                
+                if isinstance(food, BombFood):
+                    if bomb := food.create_bomb(current_time):
+                        food.active_bombs.append(bomb)
+                        self.bombs.append(bomb)
+                elif isinstance(food, SlowdownFood):
+                    if slowdown := food.create_slowdown(current_time):
+                        food.active_slowdowns.append(slowdown)
+                        self.slowdown_elements.append(slowdown)
 
             # Update active effects
-            food.active_bombs = [b for b in food.active_bombs if current_time - b[2] < BOMB_DURATION]
-            food.active_slowdowns = [s for s in food.active_slowdowns if current_time - s[2] < 5000]
+            if isinstance(food, BombFood):
+                food.active_bombs = [b for b in food.active_bombs if current_time - b[2] < BOMB_DURATION]
+            elif isinstance(food, SlowdownFood):
+                food.active_slowdowns = [s for s in food.active_slowdowns if current_time - s[2] < 5000]
 
     def update_powerups(self):
         current_time = pygame.time.get_ticks()
@@ -216,7 +240,7 @@ class SnakeGame:
                     if bomb := food.create_bomb(current_time):
                         self.bombs.append(bomb)
                 else:
-                    if slowdown := food.create_slowdown():
+                    if slowdown := food.create_slowdown(current_time):
                         self.slowdown_elements.append(slowdown)
                 
             if not self.foods:
