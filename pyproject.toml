@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snakelite"
+version = "0.1.0"
+description = "Snakelite - A snake roguelite game"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "pygame>=2.0",
+]
+
+[project.scripts]
+snakelite = "snakelite.entities.player.snake:main"
